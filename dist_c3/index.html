@@ -541,7 +541,7 @@ function renderChart2(){
 // 变动向量图: 把每只转债的箭头起点全部平移到原点(0,0), 只保留「变动量」。
 // 这样能在同一坐标系里横向比较各转债的变动方向与幅度 —— 离原点越远变动越大。
 // items: [{code, name, dx, dy, tip}]
-// showRegions=true 时(图5): 额外画 Y=X 黄色参考线, 并按 6 个区域(Y=X 线、X轴、Y轴 划分)
+// showRegions=true 时(图5/图6 均启用): 额外画 Y=X 黄色参考线, 并按 6 个区域(Y=X 线、X轴、Y轴 划分)
 // 统计各自箭头数量与占比, 标注在对应区域内。
 function drawVectorChart(divId, items, pct, showRegions){
   const el = document.getElementById(divId);
@@ -1101,7 +1101,7 @@ function renderChart4(){
              `变动：转股价值 ${dxTxt}　价格 ${dyTxt}`
       });
     });
-    drawVectorChart('chart5b', items6, c6pct);
+    drawVectorChart('chart5b', items6, c6pct, true);
   }
 }
 
