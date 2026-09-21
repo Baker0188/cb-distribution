@@ -541,7 +541,9 @@ function renderChart2(){
 // 变动向量图: 把每只转债的箭头起点全部平移到原点(0,0), 只保留「变动量」。
 // 这样能在同一坐标系里横向比较各转债的变动方向与幅度 —— 离原点越远变动越大。
 // items: [{code, name, dx, dy, tip}]
-function drawVectorChart(divId, items, pct){
+// showRegions=true 时(图5): 额外画 Y=X 黄色参考线, 并按 6 个区域(Y=X 线、X轴、Y轴 划分)
+// 统计各自箭头数量与占比, 标注在对应区域内。
+function drawVectorChart(divId, items, pct, showRegions){
   const el = document.getElementById(divId);
   if(!el) return;
   const cntEl = document.getElementById(divId === 'chart5a' ? 'c5a' : 'c5b');
@@ -594,6 +596,46 @@ function drawVectorChart(divId, items, pct){
     hoverinfo:'skip', showlegend:false
   };
 
+  // ---- Y=X 黄色参考线 + 六区域箭头数量/占比统计(仅图5) ----
+  // 六区域由三条线(Y=X、X轴即Y=0、Y轴即X=0)把变动向量平面切成 6 个扇区:
+  //   ① Y轴↔Y=X 之间(Y>0)   = dx>0 且 dy>dx
+  //   ② 第二象限(X<0,Y>0)     = dx<0 且 dy>0
+  //   ③ Y=X↔X轴 之间(X>0)     = dx>0 且 0<dy<dx
+  //   ④ 第四象限(X>0,Y<0)     = dx>0 且 dy<0
+  //   ⑤ Y=X↔Y轴 之间(Y<0)     = dx<0 且 dy<dx
+  //   ⑥ Y=X↔X轴 之间(X<0)     = dx<0 且 dx<dy<0 (即 dy<0 且 dy>dx)
+  let yxVecTrace = null;
+  if(showRegions){
+    const REG = [
+      {label:'Y轴↔Y=X · Y>0',   x: 0.30, y: 0.78, t:(dx,dy)=> dx>0 && dy>dx},
+      {label:'第二象限 · X<0,Y>0', x:-0.62, y: 0.62, t:(dx,dy)=> dx<0 && dy>0},
+      {label:'Y=X↔X轴 · X>0',   x: 0.78, y: 0.30, t:(dx,dy)=> dx>0 && dy>0 && dy<dx},
+      {label:'第四象限 · X>0,Y<0', x: 0.62, y:-0.62, t:(dx,dy)=> dx>0 && dy<0},
+      {label:'Y=X↔Y轴 · Y<0',   x:-0.30, y:-0.78, t:(dx,dy)=> dx<0 && dy<dx},
+      {label:'Y=X↔X轴 · X<0',   x:-0.78, y:-0.30, t:(dx,dy)=> dx<0 && dy<0 && dy>dx},
+    ];
+    const total = items.length;
+    yxVecTrace = {
+      x:[-mmax, mmax], y:[-mmax, mmax],
+      mode:'lines', type:'scatter', name:'Y=X',
+      line:{dash:'dash', color:'#ffd24a', width:M.ref(1.4)},
+      hoverinfo:'skip', showlegend:false
+    };
+    REG.forEach(def=>{
+      const n = items.filter(it=> def.t(it.dx, it.dy)).length;
+      const pct = total ? (n/total*100).toFixed(1) : '0.0';
+      arrows.push({
+        x: def.x*mmax, y: def.y*mmax, xref:'x', yref:'y',
+        showarrow:false,
+        text: '<b>'+def.label+'</b><br>'+n+' 只 · '+pct+'%',
+        font:{size: Math.max(10, M.font-2), color:'#ffe08a',
+              family:'"Microsoft YaHei","PingFang SC",sans-serif'},
+        bgcolor:'rgba(15,19,32,0.78)', bordercolor:'#2a3350',
+        borderwidth:1, borderpad:3, align:'center'
+      });
+    });
+  }
+
   const lay = JSON.parse(JSON.stringify(PLOT_LAYOUT));
   lay.annotations = arrows;
   lay.showlegend = false;
@@ -602,11 +644,13 @@ function drawVectorChart(divId, items, pct){
   lay.xaxis = Object.assign({}, lay.xaxis, {title: pct?'转股价值 变动幅度(%)':'转股价值 变动', range:[-mmax, mmax], zeroline:false});
   lay.yaxis = Object.assign({}, lay.yaxis, {title: pct?'转债价格 变动幅度(%)':'转债价格 变动', range:[-mmax, mmax],
                                             zeroline:false, scaleanchor:'x', scaleratio:1});
-  Plotly.react(divId, [cross].concat(traces), lay, CONFIG);
+  const vecTraces = yxVecTrace ? [cross, yxVecTrace].concat(traces) : [cross].concat(traces);
+  Plotly.react(divId, vecTraces, lay, CONFIG);
 
-  // hover 高亮映射: 本图只有连线与箭头(无散点), 散点索引留空即可
+  // hover 高亮映射: 本图只有连线与箭头(无散点), 散点索引留空即可。
+  // 有 Y=X 黄线时它占 scatterlayer 第 2 条(index 1), 箭头连线从 index 2 起。
   window['_'+divId] = {
-    baseAlpha:1, lineStart:1, lineCount:traces.length,
+    baseAlpha:1, lineStart: yxVecTrace ? 2 : 1, lineCount:traces.length,
     lineCodes:codes, lineAlphas:alphas, arrowCodes:codes, arrowAlphas:alphas
   };
 }
@@ -875,7 +919,7 @@ function renderChart3(){
              `变动：转股价值 ${dxTxt}　价格 ${dyTxt}`
       });
     });
-    drawVectorChart('chart5a', items5, c5pct);
+    drawVectorChart('chart5a', items5, c5pct, true);
   }
 
   // 重绘后旧的顺序标记坐标已失效, 清掉(否则会残留在错误位置)
