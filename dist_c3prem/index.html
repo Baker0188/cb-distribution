@@ -1133,8 +1133,9 @@ function renderChart8(c1, prevMap, curDate3){
   const R_OUT = 1.0, R_IN = 0.55;   // 半径范围: 尽量窄(近似「同一个圆」), 只为径向错开弧线
   const N = items.length;
   const _r = (i)=> R_OUT - (R_OUT - R_IN) * (N<=1 ? 0 : i/(N-1));
-  // 弧线粗细自适应: 数量少→稍粗(看清每一条), 数量多→细(避免糊成一团)。1.35 起步, 每多一只减 0.003, 夹在 [0.35, 1.2]。
-  const W_ARC = M8.pt(Math.max(0.35, Math.min(1.2, 1.35 - N*0.003)));
+  // 弧线粗细自适应: 数量越少越粗(看清每一条), 越多越细(避免糊成一团)。
+  // 反比例衰减 + 夹在 [0.35, 2.4]: 个位数→约2.1~2.4, 二三十只→约1.7, 上百只→约0.9, 三百多只→约0.38。
+  const W_ARC = M8.pt(Math.max(0.35, Math.min(2.4, 2.4 / (1 + N/60))));
 
   const _tip = (it)=>{
     const premOld = (it.p.price/it.p.conv - 1) * 100;
@@ -1215,7 +1216,7 @@ function renderChart9(prevMap, curDate3){
   if(!el) return;
   const cntEl = document.getElementById('c9');
   const M9 = uiMetrics('chart9');
-  const UP='#ff5b5b', DOWN='#21c17a', FLAT='#9aa6c0';
+  const UP='#ff5b5b', DOWN='#21c17a';
 
   // 期限筛选(与图8/图3 同一组输入框)
   const _ylv = (elm) => (elm && elm.value !== '' && isNum(parseFloat(elm.value))) ? parseFloat(elm.value) : null;
@@ -1256,11 +1257,11 @@ function renderChart9(prevMap, curDate3){
   const keys = [...buckets.keys()].sort((a,b)=>a-b);
   const xs = keys.map(k=> k*BIN + BIN/2);       // 桶中心
   const ys = keys.map(k=> buckets.get(k));
-  // 负数绿、正数红、0 灰
-  const colors = keys.map(k=> k>0 ? UP : (k<0 ? DOWN : FLAT));
+  // 负数绿、非负(正或0)红, 不用灰色
+  const colors = keys.map(k=> k>=0 ? UP : DOWN);
   const txts = keys.map(k=>{
     const lo = k*BIN, hi = (k+1)*BIN;
-    const label = k>0 ? '正(红=变大)' : (k<0 ? '负(绿=变小)' : '不变');
+    const label = k>=0 ? '正(红=变大)' : '负(绿=变小)';
     return `溢价率变化 ${lo}% ~ ${hi}%：<b>${buckets.get(k)}</b> 只（${label}）`;
   });
 
