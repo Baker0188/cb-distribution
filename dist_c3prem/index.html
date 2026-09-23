@@ -117,7 +117,7 @@
 <body class="mode-3prem">
 <header>
   <h1>可转债双图 · 转股价值 vs 转债价格</h1>
-  <div class="sub">图3：剩余期限可选（默认 ≥ 5.8 年，可用工具栏期限区间/快捷按钮筛选）上一交易日对比（左）　|　图7：溢价率变化，点到原点连线的斜率（价格÷转股价值），<span style='color:#ff5b5b'>红=斜率(溢价率)变大</span>，<span style='color:#21c17a'>绿=斜率(溢价率)变小</span>；曲线=溢价率变化弧，悬停显示该转债两条射线（右）　|　图8：溢价率变化全景，弧线归一化到同一圆（左）　|　图9：溢价率分布，颗粒 1%（右）</div>
+  <div class="sub">图3：剩余期限可选（默认 ≥ 5.8 年，可用工具栏期限区间/快捷按钮筛选）上一交易日对比（左）　|　图7：溢价率变化，点到原点连线的斜率（价格÷转股价值），<span style='color:#ff5b5b'>红=斜率(溢价率)变大</span>，<span style='color:#21c17a'>绿=斜率(溢价率)变小</span>；曲线=溢价率变化弧，悬停显示该转债两条射线（右）　|　图8：溢价率变化全景，弧线归一化到同一圆（左）　|　图9：溢价率变化分布，颗粒 1%，<span style='color:#ff5b5b'>红=正</span>/<span style='color:#21c17a'>绿=负</span>（右）</div>
 </header>
 <div class="toolbar" id="dateToolbar">
   <div class="ctrl">
@@ -258,9 +258,9 @@
 </div>
 <div style="padding:0 18px 14px" id="wrap9">
   <div class="card" id="card9">
-    <h2>图9 · 溢价率分布（颗粒 1%）<span class="cnt" id="c9"></span></h2>
+    <h2>图9 · 溢价率变化分布（颗粒 1%）<span class="cnt" id="c9"></span></h2>
     <div id="chart9" class="chart"></div>
-    <div style="margin-top:8px" class="hint">横轴 = 当日溢价率（价格÷转股价值 − 1），每 1% 一个柱子；纵轴 = 数量。纵虚线 = 平价 0%（左侧绿 = 折价，右侧橙 = 溢价）。与上方期限筛选联动。</div>
+    <div style="margin-top:8px" class="hint">横轴 = 溢价率变化（当日溢价率 − 上一交易日溢价率，百分点），每 1% 一个柱子；纵轴 = 数量。纵虚线 = 变化 0%。<span style="color:#ff5b5b">红 = 正（溢价率变大）</span>，<span style="color:#21c17a">绿 = 负（溢价率变小）</span>。与上方期限筛选联动。</div>
   </div>
 </div>
 <footer id="foot"></footer>
@@ -995,7 +995,7 @@ function renderChart3(){
   }
 
   // 溢价率变化图(图7) + 溢价率变化全景图(图8) + 溢价率分布图(图9): 仅在「图3+溢价率变化」并排站(mode-3prem)渲染, 复用图3 已算好的 c1/prevMap
-  if(PAGE_MODE==='3prem'){ renderChart7(c1, prevMap, curDate3); renderChart8(c1, prevMap, curDate3); renderChart9(); }
+  if(PAGE_MODE==='3prem'){ renderChart7(c1, prevMap, curDate3); renderChart8(c1, prevMap, curDate3); renderChart9(prevMap, curDate3); }
 
   // 重绘后旧的顺序标记坐标已失效, 清掉(否则会残留在错误位置)
   const _ovEl = document.getElementById('chart3');
@@ -1207,15 +1207,15 @@ function renderChart8(c1, prevMap, curDate3){
     lineCodes, lineAlphas:lineCodes.map(()=>1), arrowCodes:[], arrowAlphas:[] };
 }
 
-// 溢价率分布图(图9): 横轴=当日溢价率(价格/转股价值-1), 每 1% 一个柱子(颗粒 1%), 纵轴=数量。
-// 与图8 同一期限筛选联动。纵虚线=平价 0%(左绿=折价, 右橙=溢价)。
-// 溢价率存在极端离群(个别高价债可达 +1000%+), 故默认 X 轴窗口 [-50%, +250%] 聚焦主体, 用户可缩放看长尾。
-function renderChart9(){
+// 溢价率变化分布图(图9): 横轴=溢价率变化(当日溢价率 - 上一交易日溢价率, 百分点), 每 1% 一个柱子(颗粒 1%), 纵轴=数量。
+// 与图8 同一期限筛选联动。负变化=绿, 正变化=红, 无变化=灰; 纵虚线=变化 0%。
+// 多数转债日溢价率变化落在 ±几个百分点, 个别极端(如 +58%), 默认 X 窗口 [-15, +15] 聚焦主体, 可缩放看长尾。
+function renderChart9(prevMap, curDate3){
   const el = document.getElementById('chart9');
   if(!el) return;
   const cntEl = document.getElementById('c9');
   const M9 = uiMetrics('chart9');
-  const PREM_UP='#ffb454', PREM_DOWN='#21c17a';
+  const UP='#ff5b5b', DOWN='#21c17a', FLAT='#9aa6c0';
 
   // 期限筛选(与图8/图3 同一组输入框)
   const _ylv = (elm) => (elm && elm.value !== '' && isNum(parseFloat(elm.value))) ? parseFloat(elm.value) : null;
@@ -1228,14 +1228,17 @@ function renderChart9(){
                 : '期限 '+ylMin+'~'+ylMax+' 年';
 
   const ds = DATASETS[+sel.value];
-  const prems = [];
+  const deltas = [];   // 溢价率变化(百分点)
   ds.records.forEach(r=>{
     if(r.year_left===null || !_inYl(r.year_left)) return;
     if(!isNum(r.conv) || !isNum(r.price) || !(r.conv>0)) return;
-    prems.push((r.price/r.conv - 1) * 100);
+    const p = prevMap[r.code];
+    if(!p || !(p.conv>0)) return;
+    // 溢价率变化 = 当日溢价率 - 上一交易日溢价率 = (price/conv)差 * 100
+    deltas.push(((r.price/r.conv) - (p.price/p.conv)) * 100);
   });
 
-  const total = prems.length;
+  const total = deltas.length;
   if(cntEl) cntEl.textContent = '  共 '+total+' 只（'+_ylTxt+'）';
   if(!total){
     Plotly.react('chart9', [], JSON.parse(JSON.stringify(PLOT_LAYOUT)), CONFIG);
@@ -1243,20 +1246,22 @@ function renderChart9(){
     return;
   }
 
-  // 按 1% 颗粒分桶: bucket = floor(prem / 1)
+  // 按 1% 颗粒分桶: bucket = floor(delta / 1)
   const BIN = 1.0;
   const buckets = new Map();
-  prems.forEach(p=>{
-    const k = Math.floor(p / BIN);
+  deltas.forEach(v=>{
+    const k = Math.floor(v / BIN);
     buckets.set(k, (buckets.get(k)||0) + 1);
   });
   const keys = [...buckets.keys()].sort((a,b)=>a-b);
   const xs = keys.map(k=> k*BIN + BIN/2);       // 桶中心
   const ys = keys.map(k=> buckets.get(k));
-  const colors = xs.map(x=> x>=0 ? PREM_UP : PREM_DOWN);
+  // 负数绿、正数红、0 灰
+  const colors = keys.map(k=> k>0 ? UP : (k<0 ? DOWN : FLAT));
   const txts = keys.map(k=>{
     const lo = k*BIN, hi = (k+1)*BIN;
-    return `溢价率 ${lo}% ~ ${hi}%：<b>${buckets.get(k)}</b> 只`;
+    const label = k>0 ? '正(红=变大)' : (k<0 ? '负(绿=变小)' : '不变');
+    return `溢价率变化 ${lo}% ~ ${hi}%：<b>${buckets.get(k)}</b> 只（${label}）`;
   });
 
   const lay = JSON.parse(JSON.stringify(PLOT_LAYOUT));
@@ -1265,13 +1270,13 @@ function renderChart9(){
   lay.barmode = 'overlay';
   lay.hovermode = 'closest';
   lay.font = Object.assign({}, lay.font, {size:M9.font});
-  // 默认窗口聚焦主体 [-50%, +250%]; 超出(极端高价债)仍可通过缩放查看
-  lay.xaxis = Object.assign({}, lay.xaxis, {title:'溢价率(%)', range:[-50, 250], zeroline:false});
+  // 默认窗口聚焦主体 [-15%, +15%]; 超出(极端变化)仍可通过缩放查看
+  lay.xaxis = Object.assign({}, lay.xaxis, {title:'溢价率变化(百分点)', range:[-15, 15], zeroline:false});
   lay.yaxis = Object.assign({}, lay.yaxis, {title:'数量(只)', rangemode:'nonnegative', zeroline:false});
   // 直方图 Y 轴是「数量」, 与 X 轴单位不同, 必须去掉 1:1 等比(否则 Y 会被 scaleanchor 撑爆)
   delete lay.yaxis.scaleanchor;
   delete lay.yaxis.scaleratio;
-  // 平价 0% 纵虚线
+  // 变化 0% 纵虚线
   lay.shapes = [{
     type:'line', xref:'x', yref:'paper', x0:0, x1:0, y0:0, y1:1,
     line:{color:'#ff7a59', width:M9.ref(1.2), dash:'dash'}
