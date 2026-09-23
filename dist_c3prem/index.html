@@ -108,7 +108,7 @@
 <body class="mode-3prem">
 <header>
   <h1>可转债双图 · 转股价值 vs 转债价格</h1>
-  <div class="sub">图3：剩余期限 ≥ 5.8 年转债 上一交易日对比（左）　|　图7：溢价率变化，点到原点连线的斜率（价格÷转股价值），<span style='color:#ff5b5b'>红=斜率(溢价率)变大</span>，<span style='color:#21c17a'>绿=斜率(溢价率)变小</span>；虚线=上一交易日、实线=当日（右）</div>
+  <div class="sub">图3：剩余期限 ≥ 5.8 年转债 上一交易日对比（左）　|　图7：溢价率变化，点到原点连线的斜率（价格÷转股价值），<span style='color:#ff5b5b'>红=斜率(溢价率)变大</span>，<span style='color:#21c17a'>绿=斜率(溢价率)变小</span>；曲线=溢价率变化弧（旧点→与新射线交点），悬停显示该转债两条射线（虚线=上一交易日、实线=当日）（右）</div>
 </header>
 <div class="toolbar" id="dateToolbar">
   <div class="ctrl">
@@ -235,7 +235,7 @@
 </div>
 <div style="padding:0 18px 14px" id="wrap7">
   <div class="card" id="card7">
-    <h2>图7 · 溢价率变化（斜率：红=变大 / 绿=变小）<span class="cnt" id="c7"></span></h2>
+    <h2>图7 · 溢价率变化（斜率：红=变大 / 绿=变小；悬停显示射线）<span class="cnt" id="c7"></span></h2>
     <div id="chart7" class="chart" style="height:520px"></div>
     <div style="margin-top:8px" class="hint">溢价率 = 点到原点连线的斜率（价格 ÷ 转股价值）。每只转债画两条从原点出发的射线：<span style="color:#9aa6c0">虚线=上一交易日</span>、实线=当日；两条射线之间用虚线弧标出斜率变化。<span style="color:#ff5b5b">红=斜率(溢价率)变大</span>，<span style="color:#21c17a">绿=斜率(溢价率)变小</span>。</div>
   </div>
@@ -386,7 +386,11 @@ function attachArrowChartHoverDim(divId, key){
     for(let i=0;i<M.lineCount;i++){
       const g = sl.children[M.lineStart+i];
       const baseLn = (M.lineAlphas && M.lineAlphas[i]) || M.baseAlpha;
-      if(g) g.style.opacity = (M.lineCodes[i]===code) ? 1 : ratio(DIM_LN, baseLn);
+      // hoverOnly[i]=true 表示该 trace 默认隐藏、仅 hover 到同一 code 时才显示(如 图7 的两条射线)
+      const hoverOnly = M.hoverOnly && M.hoverOnly[i];
+      if(g) g.style.opacity = hoverOnly
+        ? (M.lineCodes[i]===code ? 1 : 0)
+        : (M.lineCodes[i]===code ? 1 : ratio(DIM_LN, baseLn));
     }
     // 散点(逐点: 前2日点 / 前日点 / 当日点)
     // base 必须与 trace 自身的 marker.opacity 一致, 否则变淡比例会算错
@@ -976,8 +980,10 @@ function renderChart3(){
 }
 
 // 溢价率变化图(图7): 溢价率 = 点到原点连线的斜率(价格/转股价值)。
-// 每只转债画两条从原点出发的射线: 虚线=上一交易日, 实线=当日; 两条射线间用虚线弧标出斜率变化。
-// 斜率变大(溢价率升高)=红, 变小=绿, 不变=灰。坐标轴与图3 一致(转股价值 vs 转债价格, 1:1, 非负)。
+// 每只转债只画一条「溢价率变化弧」(常显): 起点=上一交易日点, 终点=以原点为圆心、过旧点的圆 与 当日射线的交点,
+//   即半径=旧点到原点距离的圆上从旧角度扫到新角度的一段弧。斜率变大(溢价率升高)=红, 变小=绿, 不变=灰。
+// 旧/新两条射线(虚线=上一交易日, 实线=当日)默认隐藏, 光标悬停到该转债(弧线)时才显示。
+// 坐标轴与图3 一致(转股价值 vs 转债价格, 1:1, 非负)。
 function renderChart7(c1, prevMap, curDate3){
   const el = document.getElementById('chart7');
   if(!el) return;
@@ -1009,36 +1015,37 @@ function renderChart7(c1, prevMap, curDate3){
            `${curDate3}：转股价值 ${it.r.conv.toFixed(1)}　价格 ${it.r.price.toFixed(1)}　斜率(溢价率) ${(it.sNew*100).toFixed(1)}%<br>`+
            `斜率变化：${it.dir===UP?'变大(红)':(it.dir===DOWN?'变小(绿)':'不变')}（${it.sg}${(it.dPrem*100).toFixed(2)} 个百分点）`;
 
-  // 两点间虚线弧: 从旧角度扫到新角度(都在第一象限), 半径取两端点较近者的 0.7
+  // 溢价率变化弧: 以原点为圆心、半径=旧点到原点距离(圆经过旧点)的圆上, 从旧角度(ta)扫到新角度(tb)。
+  // 起点恰为旧点(ta), 终点=圆 与 当日射线(角度 tb) 的交点。
   const _arc = (ax, ay, bx, by)=>{
-    const ra = Math.hypot(ax, ay), rb = Math.hypot(bx, by);
-    const rr = Math.min(ra, rb) * 0.7;
-    const ta = Math.atan2(ay, ax), tb = Math.atan2(by, bx);
+    const rr = Math.hypot(ax, ay);            // 半径 = 旧点到原点距离(圆经过旧点)
+    const ta = Math.atan2(ay, ax);            // 旧角度
+    const tb = Math.atan2(by, bx);            // 新角度(=当日射线方向)
     const n = 24, xs=[], ys=[];
     for(let i=0;i<=n;i++){ const t = ta + (tb-ta)*i/n; xs.push(rr*Math.cos(t)); ys.push(rr*Math.sin(t)); }
     return {x:xs, y:ys};
   };
 
-  const traces = [], lineCodes = [];
+  const traces = [], lineCodes = [], hoverOnly = [];
   items.forEach(it=>{
     const cd = {code:it.r.code};
     const _t = _tip(it);
-    // 旧射线(虚线, 上一交易日)
+    // 旧射线(虚线, 上一交易日): 默认隐藏, hover 该转债才显示
     traces.push({ x:[0, it.p.conv], y:[0, it.p.price], mode:'lines', type:'scatter',
-      line:{dash:'dash', color:it.dir, width:M7.pt(1.0)}, opacity:0.55,
-      hoverinfo:'text', text:[_t,_t], customdata:[cd,cd], showlegend:false });
-    lineCodes.push(it.r.code);
-    // 新射线(实线, 当日)
+      line:{dash:'dash', color:it.dir, width:M7.pt(1.0)}, opacity:0,
+      hoverinfo:'skip', showlegend:false });
+    lineCodes.push(it.r.code); hoverOnly.push(true);
+    // 新射线(实线, 当日): 默认隐藏, hover 该转债才显示
     traces.push({ x:[0, it.r.conv], y:[0, it.r.price], mode:'lines', type:'scatter',
-      line:{dash:'solid', color:it.dir, width:M7.pt(1.5)},
-      hoverinfo:'text', text:[_t,_t], customdata:[cd,cd], showlegend:false });
-    lineCodes.push(it.r.code);
-    // 虚线弧(两射线之间的斜率变化)
+      line:{dash:'solid', color:it.dir, width:M7.pt(1.5)}, opacity:0,
+      hoverinfo:'skip', showlegend:false });
+    lineCodes.push(it.r.code); hoverOnly.push(true);
+    // 溢价率变化弧(常显, 可悬浮): 圆上从旧点到与新射线交点
     const arc = _arc(it.p.conv, it.p.price, it.r.conv, it.r.price);
     traces.push({ x:arc.x, y:arc.y, mode:'lines', type:'scatter',
-      line:{dash:'dot', color:it.dir, width:M7.pt(0.8)}, opacity:0.7,
-      hoverinfo:'skip', showlegend:false });
-    lineCodes.push(it.r.code);
+      line:{dash:'solid', color:it.dir, width:M7.pt(1.6)}, opacity:0.9,
+      hoverinfo:'text', text:arc.x.map(()=>_t), customdata:arc.x.map(()=>cd), showlegend:false });
+    lineCodes.push(it.r.code); hoverOnly.push(false);
   });
 
   const lay = JSON.parse(JSON.stringify(PLOT_LAYOUT));
@@ -1050,9 +1057,10 @@ function renderChart7(c1, prevMap, curDate3){
   lay.font = Object.assign({}, lay.font, {size:M7.font});
   Plotly.react('chart7', traces, lay, CONFIG);
 
-  // hover 高亮映射(纯连线, 无散点): 每只转债 3 条 trace(旧射线/新射线/弧线)共用同一 code
+  // hover 高亮映射(纯连线, 无散点): 每只转债 3 条 trace(旧射线/新射线/弧线)共用同一 code;
+  // hoverOnly[i]=true 表示该 trace 默认隐藏、仅 hover 到同一 code 时才显示(两条射线), 其余(弧线)常显。
   window._c7 = { baseAlpha:1, lineStart:0, lineCount:traces.length,
-    lineCodes, lineAlphas:lineCodes.map(()=>1), arrowCodes:[], arrowAlphas:[] };
+    lineCodes, hoverOnly, lineAlphas:lineCodes.map(()=>1), arrowCodes:[], arrowAlphas:[] };
 }
 
 function renderChart4(){
