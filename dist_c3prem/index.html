@@ -78,9 +78,10 @@
   body.mode-35 #chart3,
   body.mode-35 #chart5a{height:calc(100vh - 158px) !important}
   body.mode-35 footer{clear:both}
-  /* 剩余期限区间过滤 + 规模区间过滤: 仅图3+图5 并排站(mode-35)显示 */
+  /* 剩余期限区间过滤 + 规模区间过滤: 图3+图5 并排站(mode-35)显示两者, 图3+溢价率变化站(mode-3prem)仅显示期限 */
   #c3ylwrap,#c3scalewrap{display:none}
   body.mode-35 #c3ylwrap,body.mode-35 #c3scalewrap{display:flex}
+  body.mode-3prem #c3ylwrap{display:flex}
   /* 图1/2/3/5 每行两个图 站: 图1|图2 第一行(grid 默认两列), 图3|图5 第二行(各半宽) */
   body.mode-1232 #card4,
   body.mode-1232 #card5b{display:none}
@@ -113,7 +114,7 @@
 <body class="mode-3prem">
 <header>
   <h1>可转债双图 · 转股价值 vs 转债价格</h1>
-  <div class="sub">图3：剩余期限 ≥ 5.8 年转债 上一交易日对比（左）　|　图7：溢价率变化，点到原点连线的斜率（价格÷转股价值），<span style='color:#ff5b5b'>红=斜率(溢价率)变大</span>，<span style='color:#21c17a'>绿=斜率(溢价率)变小</span>；曲线=溢价率变化弧，悬停显示该转债两条射线（下）　|　图8：全市场溢价率变化全景，弧线归一化到同一圆（仅第一象限）</div>
+  <div class="sub">图3：剩余期限可选（默认 ≥ 5.8 年，可用工具栏期限区间/快捷按钮筛选）上一交易日对比（左）　|　图7：溢价率变化，点到原点连线的斜率（价格÷转股价值），<span style='color:#ff5b5b'>红=斜率(溢价率)变大</span>，<span style='color:#21c17a'>绿=斜率(溢价率)变小</span>；曲线=溢价率变化弧，悬停显示该转债两条射线（右）　|　图8：溢价率变化全景，弧线归一化到同一圆（仅第一象限，随期限筛选）</div>
 </header>
 <div class="toolbar" id="dateToolbar">
   <div class="ctrl">
@@ -247,9 +248,9 @@
 </div>
 <div style="padding:0 18px 14px" id="wrap8">
   <div class="card" id="card8">
-    <h2>图8 · 全市场溢价率变化全景（弧线：红=变大 / 绿=变小）<span class="cnt" id="c8"></span></h2>
+    <h2>图8 · 溢价率变化全景（弧线：红=变大 / 绿=变小）<span class="cnt" id="c8"></span></h2>
     <div id="chart8" class="chart"></div>
-    <div style="margin-top:8px" class="hint">把所有转债的溢价率变化弧线归一化到同一个圆（仅第一象限 0~90°）：弧线角度 = 溢价率（45° 虚线 = 平价 0%，越陡溢价越高），半径只有微小差异（按溢价率从高到低、由外到内排列，避免角度接近的弧线重合）。<span style="color:#ff5b5b">红=溢价率变大</span>，<span style="color:#21c17a">绿=溢价率变小</span>。鼠标悬浮弧线显示该转债溢价率明细。</div>
+    <div style="margin-top:8px" class="hint">把（按上方期限筛选后的）转债溢价率变化弧线归一化到同一个圆（仅第一象限 0~90°）：弧线角度 = 溢价率（45° 虚线 = 平价 0%，越陡溢价越高），半径只有微小差异（按溢价率从高到低、由外到内排列，避免角度接近的弧线重合）。<span style="color:#ff5b5b">红=溢价率变大</span>，<span style="color:#21c17a">绿=溢价率变小</span>。鼠标悬浮弧线显示该转债溢价率明细。</div>
   </div>
 </div>
 <footer id="foot"></footer>
@@ -1087,10 +1088,19 @@ function renderChart8(c1, prevMap, curDate3){
   const M8 = uiMetrics('chart8');
   const UP='#ff5b5b', DOWN='#21c17a', FLAT='#9aa6c0';
 
-  // 全市场当日数据(不限长期限), 有上一交易日对比的才画
+  // 当日数据, 按「期限区间」筛选(与图3 同一组输入框: 下限 A ~ 上限 B, 快捷 5.8/5.9/1/全部)
   const ds = DATASETS[+sel.value];
+  const _ylv8 = (el) => (el && el.value !== '' && isNum(parseFloat(el.value))) ? parseFloat(el.value) : null;
+  const ylMin8 = _ylv8(document.getElementById('c3ylmin'));
+  const ylMax8 = _ylv8(document.getElementById('c3ylmax'));
+  const _inYl8 = (yl) => (yl===null) ? false : ((ylMin8===null || yl>=ylMin8) && (ylMax8===null || yl<=ylMax8));
+  const _ylTxt8 = (ylMin8===null && ylMax8===null) ? '全部期限'
+                : (ylMin8!==null && ylMax8===null) ? '期限 ≥'+ylMin8+' 年'
+                : (ylMin8===null && ylMax8!==null) ? '期限 ≤'+ylMax8+' 年'
+                : '期限 '+ylMin8+'~'+ylMax8+' 年';
   const items = [];
   ds.records.forEach(r=>{
+    if(r.year_left===null || !_inYl8(r.year_left)) return;
     if(!isNum(r.conv) || !isNum(r.price) || !(r.conv>0)) return;
     const p = prevMap[r.code];
     if(!p || !(p.conv>0)) return;
@@ -1103,7 +1113,7 @@ function renderChart8(c1, prevMap, curDate3){
   // 按旧角度降序(溢价率从高到低), 半径由外到内, 让同类溢价率的弧线相邻、径向微差错开
   items.sort((a,b)=> b.ta - a.ta);
 
-  if(cntEl) cntEl.textContent = '  共 '+items.length+' 只（全市场溢价率变化全景）';
+  if(cntEl) cntEl.textContent = '  共 '+items.length+' 只（'+_ylTxt8+'）';
   if(!items.length){
     Plotly.react('chart8', [], JSON.parse(JSON.stringify(PLOT_LAYOUT)), CONFIG);
     window._c8 = null;
