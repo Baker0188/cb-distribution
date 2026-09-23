@@ -103,12 +103,17 @@
   body.mode-3prem #chart3,
   body.mode-3prem #chart7{height:calc(100vh - 158px) !important}
   body.mode-3prem footer{clear:both}
+  /* 图8(全市场溢价率变化全景): 独占下一行; 圆环图(第一象限)用正方形绘图区保证圆是正圆 */
+  #wrap8{display:none}
+  body.mode-3prem #wrap8{display:block;clear:both;padding:0 18px 20px}
+  body.mode-3prem #card8{max-width:none;margin:0}
+  body.mode-3prem #chart8{width:min(64vh,680px);height:min(64vh,680px);max-width:92vw;margin:0 auto}
 </style>
 </head>
 <body class="mode-3prem">
 <header>
   <h1>可转债双图 · 转股价值 vs 转债价格</h1>
-  <div class="sub">图3：剩余期限 ≥ 5.8 年转债 上一交易日对比（左）　|　图7：溢价率变化，点到原点连线的斜率（价格÷转股价值），<span style='color:#ff5b5b'>红=斜率(溢价率)变大</span>，<span style='color:#21c17a'>绿=斜率(溢价率)变小</span>；曲线=溢价率变化弧（旧点→与新射线交点），悬停显示该转债两条射线（虚线=上一交易日、实线=当日）（右）</div>
+  <div class="sub">图3：剩余期限 ≥ 5.8 年转债 上一交易日对比（左）　|　图7：溢价率变化，点到原点连线的斜率（价格÷转股价值），<span style='color:#ff5b5b'>红=斜率(溢价率)变大</span>，<span style='color:#21c17a'>绿=斜率(溢价率)变小</span>；曲线=溢价率变化弧，悬停显示该转债两条射线（下）　|　图8：全市场溢价率变化全景，弧线归一化到同一圆（仅第一象限）</div>
 </header>
 <div class="toolbar" id="dateToolbar">
   <div class="ctrl">
@@ -237,7 +242,14 @@
   <div class="card" id="card7">
     <h2>图7 · 溢价率变化（斜率：红=变大 / 绿=变小；悬停显示射线）<span class="cnt" id="c7"></span></h2>
     <div id="chart7" class="chart" style="height:520px"></div>
-    <div style="margin-top:8px" class="hint">溢价率 = 点到原点连线的斜率（价格 ÷ 转股价值）。每只转债画两条从原点出发的射线：<span style="color:#9aa6c0">虚线=上一交易日</span>、实线=当日；两条射线之间用虚线弧标出斜率变化。<span style="color:#ff5b5b">红=斜率(溢价率)变大</span>，<span style="color:#21c17a">绿=斜率(溢价率)变小</span>。</div>
+    <div style="margin-top:8px" class="hint">溢价率 = 价格 ÷ 转股价值（点到原点连线的斜率）。每只转债只画一条<span style="color:#9aa6c0">溢价率变化弧</span>：从上一交易日的点出发，沿「过旧点的圆」扫到与新射线（当日）的交点。两条射线默认隐藏，鼠标悬停弧线时才显示（<span style="color:#9aa6c0">虚线=上一交易日</span>、实线=当日）。<span style="color:#ff5b5b">红=溢价率变大</span>，<span style="color:#21c17a">绿=溢价率变小</span>。</div>
+  </div>
+</div>
+<div style="padding:0 18px 14px" id="wrap8">
+  <div class="card" id="card8">
+    <h2>图8 · 全市场溢价率变化全景（弧线：红=变大 / 绿=变小）<span class="cnt" id="c8"></span></h2>
+    <div id="chart8" class="chart"></div>
+    <div style="margin-top:8px" class="hint">把所有转债的溢价率变化弧线归一化到同一个圆（仅第一象限 0~90°）：弧线角度 = 溢价率（45° 虚线 = 平价 0%，越陡溢价越高），半径只有微小差异（按溢价率从高到低、由外到内排列，避免角度接近的弧线重合）。<span style="color:#ff5b5b">红=溢价率变大</span>，<span style="color:#21c17a">绿=溢价率变小</span>。鼠标悬浮弧线显示该转债溢价率明细。</div>
   </div>
 </div>
 <footer id="foot"></footer>
@@ -971,8 +983,8 @@ function renderChart3(){
     drawVectorChart('chart5a', items5, c5pct, true);
   }
 
-  // 溢价率变化图(图7): 仅在「图3+溢价率变化」并排站(mode-3prem)渲染, 复用图3 已算好的 c1/prevMap
-  if(PAGE_MODE==='3prem'){ renderChart7(c1, prevMap, curDate3); }
+  // 溢价率变化图(图7) + 溢价率变化全景图(图8): 仅在「图3+溢价率变化」并排站(mode-3prem)渲染, 复用图3 已算好的 c1/prevMap
+  if(PAGE_MODE==='3prem'){ renderChart7(c1, prevMap, curDate3); renderChart8(c1, prevMap, curDate3); }
 
   // 重绘后旧的顺序标记坐标已失效, 清掉(否则会残留在错误位置)
   const _ovEl = document.getElementById('chart3');
@@ -1061,6 +1073,116 @@ function renderChart7(c1, prevMap, curDate3){
   // hoverOnly[i]=true 表示该 trace 默认隐藏、仅 hover 到同一 code 时才显示(两条射线), 其余(弧线)常显。
   window._c7 = { baseAlpha:1, lineStart:0, lineCount:traces.length,
     lineCodes, hoverOnly, lineAlphas:lineCodes.map(()=>1), arrowCodes:[], arrowAlphas:[] };
+}
+
+// 溢价率变化全景图(图8): 把所有转债的溢价率变化弧线归一化到「同一个圆」上, 只画第一象限(0~90°)。
+// 每只转债的弧线 = 以原点为圆心、半径 r_i 的圆上, 从旧角度(旧溢价率)扫到新角度(新溢价率)。
+// 角度 = atan(价格/转股价值), 即溢价率的角; 45° 虚线 = 平价(溢价率 0%), 越陡溢价越高。
+// 为避免「同一半径上角度接近的弧线重合」, 每只转债半径有微小差异: 按旧角度(溢价率)降序排序,
+// 半径由外到内线性分布, 径向跨度尽量小(近似同一个圆)。红=溢价率变大, 绿=变小, 灰=不变。
+function renderChart8(c1, prevMap, curDate3){
+  const el = document.getElementById('chart8');
+  if(!el) return;
+  const cntEl = document.getElementById('c8');
+  const M8 = uiMetrics('chart8');
+  const UP='#ff5b5b', DOWN='#21c17a', FLAT='#9aa6c0';
+
+  // 全市场当日数据(不限长期限), 有上一交易日对比的才画
+  const ds = DATASETS[+sel.value];
+  const items = [];
+  ds.records.forEach(r=>{
+    if(!isNum(r.conv) || !isNum(r.price) || !(r.conv>0)) return;
+    const p = prevMap[r.code];
+    if(!p || !(p.conv>0)) return;
+    const ta = Math.atan2(p.price, p.conv);   // 旧角度(旧溢价率)
+    const tb = Math.atan2(r.price, r.conv);   // 新角度(新溢价率)
+    const dPrem = (r.price/r.conv) - (p.price/p.conv);  // 溢价率变化(斜率差)
+    const dir = dPrem>1e-9 ? UP : (dPrem<-1e-9 ? DOWN : FLAT);
+    items.push({r, p, ta, tb, dir});
+  });
+  // 按旧角度降序(溢价率从高到低), 半径由外到内, 让同类溢价率的弧线相邻、径向微差错开
+  items.sort((a,b)=> b.ta - a.ta);
+
+  if(cntEl) cntEl.textContent = '  共 '+items.length+' 只（全市场溢价率变化全景）';
+  if(!items.length){
+    Plotly.react('chart8', [], JSON.parse(JSON.stringify(PLOT_LAYOUT)), CONFIG);
+    window._c8 = null;
+    return;
+  }
+
+  const R_OUT = 1.0, R_IN = 0.55;   // 半径范围: 尽量窄(近似「同一个圆」), 只为径向错开弧线
+  const N = items.length;
+  const _r = (i)=> R_OUT - (R_OUT - R_IN) * (N<=1 ? 0 : i/(N-1));
+
+  const _tip = (it)=>{
+    const premOld = (it.p.price/it.p.conv - 1) * 100;
+    const premNew = (it.r.price/it.r.conv - 1) * 100;
+    const d = premNew - premOld;
+    const sg = d>0?'+':'';
+    return `<b>${it.r.name}</b> (${it.r.code})<br>`+
+           `${it.p.date||''}：溢价率 ${premOld.toFixed(1)}%<br>`+
+           `${curDate3}：溢价率 ${premNew.toFixed(1)}%<br>`+
+           `溢价率变化：${sg}${d.toFixed(2)} 个百分点（${it.dir===UP?'红=变大':(it.dir===DOWN?'绿=变小':'灰=不变')}）`;
+  };
+
+  // 圆弧采样: 半径 r 的圆上从角度 t0 扫到 t1
+  const _arc = (r, t0, t1, n)=>{
+    const xs=[], ys=[];
+    for(let k=0;k<=n;k++){ const t=t0+(t1-t0)*k/n; xs.push(r*Math.cos(t)); ys.push(r*Math.sin(t)); }
+    return {x:xs, y:ys};
+  };
+  const PI2 = Math.PI/2;
+  const traces = [];
+  // 参考线(占用 scatterlayer 前 3 个 index, lineStart 从 3 起):
+  // index 0: 45° 平价线(溢价率 0%), 橙黄虚线
+  traces.push({ x:[0, R_OUT*Math.cos(Math.PI/4)], y:[0, R_OUT*Math.sin(Math.PI/4)],
+    mode:'lines', type:'scatter', name:'平价 0%',
+    line:{dash:'dash', color:'#ff7a59', width:M8.ref(1.2)}, hoverinfo:'skip', showlegend:false });
+  // index 1: 外圈圆弧(R_OUT)
+  const outer = _arc(R_OUT, 0, PI2, 48);
+  traces.push({ x:outer.x, y:outer.y, mode:'lines', type:'scatter',
+    line:{dash:'dot', color:'#9aa6c0', width:M8.ref(0.8)}, opacity:0.45, hoverinfo:'skip', showlegend:false });
+  // index 2: 内圈圆弧(R_IN)
+  const inner = _arc(R_IN, 0, PI2, 48);
+  traces.push({ x:inner.x, y:inner.y, mode:'lines', type:'scatter',
+    line:{dash:'dot', color:'#9aa6c0', width:M8.ref(0.8)}, opacity:0.35, hoverinfo:'skip', showlegend:false });
+
+  const lineCodes = [];
+  const REF_COUNT = 3;   // 参考线数量(= lineStart)
+  items.forEach((it, i)=>{
+    const rr = _r(i);
+    const _t = _tip(it);
+    const cd = {code:it.r.code};
+    const a = _arc(rr, it.ta, it.tb, 16);
+    traces.push({ x:a.x, y:a.y, mode:'lines', type:'scatter',
+      line:{dash:'solid', color:it.dir, width:M8.pt(0.55)}, opacity:0.7,
+      hoverinfo:'text', text:a.x.map(()=>_t), customdata:a.x.map(()=>cd), showlegend:false });
+    lineCodes.push(it.r.code);
+  });
+
+  const lay = JSON.parse(JSON.stringify(PLOT_LAYOUT));
+  // 第一象限: 坐标非负; 1:1 等比(scaleanchor)保证圆是正圆。
+  // 图8 是抽象圆环(归一化半径), 去掉轴标题/刻度标签, 对称边距让绘图区正方形、圆填满。
+  lay.margin = {l:24, r:24, t:24, b:24};
+  lay.xaxis = Object.assign({}, lay.xaxis, {range:[0, R_OUT*1.02], rangemode:'nonnegative', constraintoward:'left',
+    zeroline:false, title:'', showticklabels:false});
+  lay.yaxis = Object.assign({}, lay.yaxis, {range:[0, R_OUT*1.02], rangemode:'nonnegative', constraintoward:'bottom',
+    zeroline:false, title:'', showticklabels:false, scaleanchor:'x', scaleratio:1});
+  lay.showlegend = false;
+  lay.hoverdistance = 40;
+  lay.font = Object.assign({}, lay.font, {size:M8.font});
+  // 文字标注: 45° 平价线(溢价率 0%), 及溢价率高低方向
+  lay.annotations = [
+    {x:R_OUT*Math.cos(Math.PI/4)*0.58, y:R_OUT*Math.sin(Math.PI/4)*0.58, text:'平价 0%',
+     showarrow:false, font:{color:'#ff7a59', size:M8.font}},
+    {x:R_OUT*0.16, y:R_OUT*0.97, text:'溢价率高 ↑', showarrow:false, font:{color:'#e7ecf5', size:M8.font}},
+    {x:R_OUT*0.97, y:R_OUT*0.05, text:'折价深 →', showarrow:false, font:{color:'#e7ecf5', size:M8.font}}
+  ];
+  Plotly.react('chart8', traces, lay, CONFIG);
+
+  // hover 高亮映射(纯连线, 无散点): 参考线 3 条在前(不参与变淡), 每只转债 1 条弧线
+  window._c8 = { baseAlpha:1, lineStart:REF_COUNT, lineCount:traces.length-REF_COUNT,
+    lineCodes, lineAlphas:lineCodes.map(()=>1), arrowCodes:[], arrowAlphas:[] };
 }
 
 function renderChart4(){
@@ -1330,6 +1452,7 @@ attachArrowChartHoverDim('chart4','_c4');
 attachArrowChartHoverDim('chart5a','_chart5a');
 attachArrowChartHoverDim('chart5b','_chart5b');
 attachArrowChartHoverDim('chart7','_c7');
+attachArrowChartHoverDim('chart8','_c8');
 attachArrowChartHoverDim('chart4','_c4');
 
 // 窗口尺寸变化后按新尺寸重算点/线/箭头大小(防抖, 且仅在尺寸真的变了时重绘)
